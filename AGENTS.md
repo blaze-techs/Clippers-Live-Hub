@@ -90,3 +90,20 @@ mocks.
 - `internal/webui/assets` is embedded with `go:embed`; new UI files must live
   under that directory.
 - The UI is a single `index.html` with inline CSS/JS so it works offline.
+
+## Mobile render path (`src/engine.js`)
+
+The Capacitor build cannot use ffmpeg, so it renders with browser APIs:
+
+- `detectHighlights(file)` — audio RMS envelope + scene-cut frame diffs, fused
+  and de-duplicated. Pure functions, no server.
+- `exportClip({ videoEl, ... })` — canvas compositor, then `MediaRecorder`.
+  Recording is real time, so a 20 s clip takes ~20 s.
+- `saveClip(blob, name)` — Capacitor Filesystem/Share when present, otherwise
+  `a[download]`.
+
+Crop math must stay identical to the Go compositor's `crop` filter: a zoomed
+window of the source, cover-fitted and centre-aligned. Change one, change both.
+
+`sniffExtension()` exists because a WebView can accept an `video/mp4` mimeType
+and hand back WebM bytes.
