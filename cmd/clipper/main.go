@@ -110,6 +110,9 @@ func main() {
 }
 
 func defaultBaseDir() string {
+	if home := os.Getenv("CLIPPERS_HOME"); home != "" {
+		return home
+	}
 	if exe, err := os.Executable(); err == nil {
 		dir := filepath.Dir(exe)
 		if writable(dir) {
