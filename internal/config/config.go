@@ -10,6 +10,7 @@ import (
 // Config controls capture, highlight detection and export.
 type Config struct {
 	OutputDir string `json:"output_dir"`
+	DataDir   string `json:"data_dir"`
 
 	FFmpegPath  string `json:"ffmpeg_path"`
 	FFprobePath string `json:"ffprobe_path"`
@@ -41,6 +42,7 @@ type Config struct {
 func Default(dir string) Config {
 	return Config{
 		OutputDir:     filepath.Join(dir, "clips"),
+		DataDir:       filepath.Join(dir, "data"),
 		FFmpegPath:    "ffmpeg",
 		FFprobePath:   "ffprobe",
 		Threshold:     0.55,
@@ -112,5 +114,8 @@ func (c *Config) Normalise() {
 	}
 	if c.Port <= 0 {
 		c.Port = 8765
+	}
+	if c.DataDir == "" {
+		c.DataDir = filepath.Join(filepath.Dir(c.OutputDir), "data")
 	}
 }

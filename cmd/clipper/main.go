@@ -29,6 +29,7 @@ func main() {
 	var (
 		port    = flag.Int("port", 8765, "local port for the control UI")
 		outDir  = flag.String("out", "", "directory for exported clips")
+		dataDir = flag.String("data", "", "directory for projects and the media library")
 		cfgPath = flag.String("config", "", "path to a JSON config file")
 		open    = flag.Bool("open", true, "open the UI in the default browser")
 		host    = flag.String("host", "127.0.0.1", "interface to bind")
@@ -53,6 +54,9 @@ func main() {
 	if *outDir != "" {
 		cfg.OutputDir = *outDir
 	}
+	if *dataDir != "" {
+		cfg.DataDir = *dataDir
+	}
 	if *port > 0 {
 		cfg.Port = *port
 	}
@@ -68,6 +72,12 @@ func main() {
 
 	pipe := pipeline.New(cfg, tools)
 	srv := api.New(cfg, pipe, tools, webui.FS())
+
+	studio, err := api.NewStudio(cfg, tools)
+	if err != nil {
+		log.Fatalf("project store: %v", err)
+	}
+	srv.SetStudio(studio)
 
 	addr := net.JoinHostPort(*host, fmt.Sprintf("%d", cfg.Port))
 	listener, err := net.Listen("tcp", addr)

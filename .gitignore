@@ -1,4 +1,6 @@
+node_modules/
 /dist/
+/runtime/
 /clips/
 /.buffer/
 *.exe

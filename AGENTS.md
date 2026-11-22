@@ -22,6 +22,51 @@ go test ./... -count=1         # unit + end-to-end tests (needs ffmpeg)
 The end-to-end tests (`internal/pipeline/e2e_test.go`) generate their own
 synthetic fixtures with ffmpeg and skip when ffmpeg is missing.
 
+## Clip Studio (timeline editor)
+
+Added after the initial capture tool. Two rendering paths now exist:
+
+- `internal/render` — single-shot reframe used by the live pipeline.
+- `internal/compose` — renders a whole `project.Project` timeline into one
+  ffmpeg filter graph (trim → crop → cover-scale → overlay → captions → mix).
+
+Rules that keep it correct:
+
+- **Preview and export must share the crop maths.** `compose.cropFilter` does
+  crop → `scale=...:force_original_aspect_ratio=increase` → `crop` (cover,
+  centred). `applyCrop()` in `index.html` reproduces exactly that. Changing one
+  without the other silently breaks WYSIWYG.
+- **Keyframed crops render.** `piecewise()` builds a nested `if(lt(t,...))`
+  expression so pans are interpolated inside ffmpeg. Commas inside the
+  expression must be escaped (`\,`) or they split the filter chain.
+- **Nil slices become `[]` in `Project.Validate()`.** Otherwise `clips: null`
+  reaches JS and `for (const c of tr.clips)` throws.
+- **Undo is snapshot based** (`project.Editor`), 100 steps, stored server side;
+  the UI only sends ops.
+- **Writes are atomic**: `project.json.tmp` + fsync + rename, with recovery in
+  `Store.Load`.
+
+Tests worth running before touching the renderer:
+`go test ./internal/compose/ ./internal/project/ ./internal/api/ -count=1`.
+The compose tests assert a left-half crop keeps red, a right-half crop keeps
+blue, and that burning captions changes the lower third — real pixels, not
+mocks.
+
+## Packaging and releases
+
+- `electron/main.cjs` spawns `runtime/ClippersLiveHub.exe` on port 18765 with
+  `CLIPPERS_HOME` set to Electron's `userData`. The Go side already honours
+  that variable in `defaultBaseDir()`, so projects land in
+  `<userData>/data/projects` and exports in `<userData>/clips`.
+- `dist/` belongs to Vite, which empties it on every build. Go binaries go to
+  `runtime/` (where `electron/main.cjs` looks for them). Never stage a binary
+  in `dist/`: `npm run build` deletes it.
+- Chocolatey's `ffmpeg.exe` is a shim; `Get-Command` returns a path relative to
+  the shim's own directory. Resolve `$env:ChocolateyInstall\lib\ffmpeg\tools`
+  instead, otherwise `Copy-Item` fails on the runner.
+- The Android job in `build-release.yml` produces a Capacitor web shell only.
+  It has no engine and no export path. Do not describe it as a working clipper.
+
 ## Architecture decisions worth keeping
 
 - **One ffmpeg process per live session.** The segmenter and the analysis
@@ -45,3 +90,20 @@ synthetic fixtures with ffmpeg and skip when ffmpeg is missing.
 - `internal/webui/assets` is embedded with `go:embed`; new UI files must live
   under that directory.
 - The UI is a single `index.html` with inline CSS/JS so it works offline.
+
+## Mobile render path (`src/engine.js`)
+
+The Capacitor build cannot use ffmpeg, so it renders with browser APIs:
+
+- `detectHighlights(file)` — audio RMS envelope + scene-cut frame diffs, fused
+  and de-duplicated. Pure functions, no server.
+- `exportClip({ videoEl, ... })` — canvas compositor, then `MediaRecorder`.
+  Recording is real time, so a 20 s clip takes ~20 s.
+- `saveClip(blob, name)` — Capacitor Filesystem/Share when present, otherwise
+  `a[download]`.
+
+Crop math must stay identical to the Go compositor's `crop` filter: a zoomed
+window of the source, cover-fitted and centre-aligned. Change one, change both.
+
+`sniffExtension()` exists because a WebView can accept an `video/mp4` mimeType
+and hand back WebM bytes.

@@ -4,7 +4,7 @@ set -euo pipefail
 
 VERSION="${VERSION:-dev}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT="$ROOT/dist"
+OUT="$ROOT/runtime"
 
 mkdir -p "$OUT"
 cd "$ROOT"

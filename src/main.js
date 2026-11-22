@@ -1,4 +1,5 @@
 import './style.css';
+import { detectHighlights, exportClip as renderClip, saveClip } from './engine.js';
 
 const $ = (s) => document.querySelector(s);
 const state = { files: [], active: 0, in: 0, out: 0, aspect: '9:16', zoom: 1, x: 50, y: 50, caption: 'YOUR MOMENT. YOUR STORY.', reaction: -1, recording: null, recorder: null, chunks: [], objectUrls: [] };
@@ -11,7 +12,7 @@ app.innerHTML = `
 <div class="timeline-head"><div><span class="eyebrow">03 / EDIT TIMELINE</span><b>SEQUENCE</b></div><div class="timeline-actions"><button id="splitBtn" class="ghost">SPLIT AT PLAYHEAD</button><button id="markInBtn" class="ghost">SET IN [I]</button><button id="markOutBtn" class="ghost">SET OUT [O]</button></div></div>
 <div class="timeline" id="timeline"><div class="ruler"><span>00:00</span><span>00:15</span><span>00:30</span><span>00:45</span><span>01:00</span></div><div class="track"><label>VIDEO</label><div class="track-content" id="videoTrack"><div class="track-empty">Imported clips appear here</div></div></div><div class="track"><label>CAPTIONS</label><div class="track-content"><div class="caption-block" id="captionBlock">CAPTION · EDITABLE</div></div></div><div class="track"><label>REACTION</label><div class="track-content" id="reactionTrack"><div class="track-empty">Optional picture-in-picture layer</div></div></div><div class="playhead" id="playhead"></div></div>
 <div class="timeline-foot"><span>DRAG CLIPS TO REORDER · SET IN/OUT TO TRIM</span><span id="selectionInfo">NO CLIP SELECTED</span></div></section>
-<aside class="right rail"><div class="section-head"><span>04 / FIND HIGHLIGHTS</span><i>ASSIST</i></div><div class="assist-card"><div class="assist-icon">✦</div><b>Highlight discovery</b><p>Analyse the selected video to identify moments worth clipping.</p><button id="analyseBtn" class="outline" disabled>ANALYSE VIDEO</button><small id="analysisStatus">AI analysis engine not configured yet.</small></div><div class="section-head space"><span>05 / REFRAME</span><i>CANVAS</i></div><div class="control"><label>OUTPUT FORMAT</label><div class="segmented"><button data-aspect="9:16" class="selected">9:16</button><button data-aspect="1:1">1:1</button><button data-aspect="16:9">16:9</button></div></div><div class="control"><div class="label-row"><label>ZOOM / SCALE</label><output id="zoomValue">1.00×</output></div><input id="zoom" type="range" min="1" max="3" step=".01" value="1"></div><div class="control"><div class="label-row"><label>HORIZONTAL POSITION</label><output id="xValue">50%</output></div><input id="posX" type="range" min="0" max="100" value="50"></div><div class="control"><div class="label-row"><label>VERTICAL POSITION</label><output id="yValue">50%</output></div><input id="posY" type="range" min="0" max="100" value="50"></div><div class="section-head space"><span>06 / CAPTIONS</span><i>TEXT</i></div><div class="control"><label>CAPTION TEXT</label><textarea id="captionInput" rows="3">YOUR MOMENT. YOUR STORY.</textarea></div><div class="control"><label>CAPTION STYLE</label><div class="segmented"><button data-style="bold" class="selected">BOLD</button><button data-style="minimal">MINIMAL</button><button data-style="boxed">BOXED</button></div></div><div class="section-head space"><span>07 / EXPORT</span><i>OUTPUT</i></div><div class="export-card"><div class="label-row"><label>CLIP DURATION</label><output id="clipDuration">00:00</output></div><p>Export the selected range with the current framing and caption overlay.</p><button id="exportSide" class="primary full">RENDER CLIP ↗</button><small id="exportStatus">Ready when media is loaded.</small></div></aside>
+<aside class="right rail"><div class="section-head"><span>04 / FIND HIGHLIGHTS</span><i>ASSIST</i></div><div class="assist-card"><div class="assist-icon">✦</div><b>Highlight discovery</b><p>Analyse the selected video to identify moments worth clipping.</p><button id="analyseBtn" class="outline" disabled>ANALYSE VIDEO</button><div class="progress" id="analysisProgress" hidden><i></i></div><div id="highlights" class="highlights"></div><small id="analysisStatus">Ready. Analysis runs on this device.</small></div><div class="section-head space"><span>05 / REFRAME</span><i>CANVAS</i></div><div class="control"><label>OUTPUT FORMAT</label><div class="segmented"><button data-aspect="9:16" class="selected">9:16</button><button data-aspect="1:1">1:1</button><button data-aspect="16:9">16:9</button></div></div><div class="control"><div class="label-row"><label>ZOOM / SCALE</label><output id="zoomValue">1.00×</output></div><input id="zoom" type="range" min="1" max="3" step=".01" value="1"></div><div class="control"><div class="label-row"><label>HORIZONTAL POSITION</label><output id="xValue">50%</output></div><input id="posX" type="range" min="0" max="100" value="50"></div><div class="control"><div class="label-row"><label>VERTICAL POSITION</label><output id="yValue">50%</output></div><input id="posY" type="range" min="0" max="100" value="50"></div><div class="section-head space"><span>06 / CAPTIONS</span><i>TEXT</i></div><div class="control"><label>CAPTION TEXT</label><textarea id="captionInput" rows="3">YOUR MOMENT. YOUR STORY.</textarea></div><div class="control"><label>CAPTION STYLE</label><div class="segmented"><button data-style="bold" class="selected">BOLD</button><button data-style="minimal">MINIMAL</button><button data-style="boxed">BOXED</button></div></div><div class="section-head space"><span>07 / EXPORT</span><i>OUTPUT</i></div><div class="export-card"><div class="label-row"><label>CLIP DURATION</label><output id="clipDuration">00:00</output></div><p>Export the selected range with the current framing and caption overlay.</p><button id="exportSide" class="primary full">RENDER CLIP ↗</button><div class="progress" id="exportProgress" hidden><i></i></div><small id="exportStatus">Ready when media is loaded.</small></div></aside>
 </main><input id="fileInput" type="file" accept="video/*,audio/*" multiple hidden><input id="projectInput" type="file" accept=".json,application/json" hidden><div class="toast" id="toast"></div>`;
 const video = $('#video'), reactionVideo = $('#reactionVideo');
 function fmt(s) { if (!Number.isFinite(s)) return '00:00'; const m=Math.floor(s/60), sec=s%60; return String(m).padStart(2,'0')+':'+String(Math.floor(sec)).padStart(2,'0'); }
@@ -35,14 +36,65 @@ document.querySelectorAll('[data-aspect]').forEach(b=>b.onclick=()=>{state.aspec
 function applyCrop(){const stage=$('#previewStage');stage.style.setProperty('--zoom',state.zoom);stage.style.setProperty('--x',state.x+'%');stage.style.setProperty('--y',state.y+'%');$('#zoomValue').textContent=state.zoom.toFixed(2)+'×';$('#xValue').textContent=state.x+'%';$('#yValue').textContent=state.y+'%';}
 $('#zoom').oninput=e=>{state.zoom=+e.target.value;applyCrop();};$('#posX').oninput=e=>{state.x=+e.target.value;applyCrop();};$('#posY').oninput=e=>{state.y=+e.target.value;applyCrop();};
 $('#captionInput').oninput=e=>{state.caption=e.target.value;$('#captionPreview').textContent=state.caption;$('#captionBlock').textContent=state.caption||'CAPTION · EMPTY';};
-document.querySelectorAll('[data-style]').forEach(b=>b.onclick=()=>{$('#captionPreview').className='caption-preview '+b.dataset.style;document.querySelectorAll('[data-style]').forEach(x=>x.classList.toggle('selected',x===b));});
+document.querySelectorAll('[data-style]').forEach(b=>b.onclick=()=>{state.captionStyle=b.dataset.style;$('#captionPreview').className='caption-preview '+b.dataset.style;document.querySelectorAll('[data-style]').forEach(x=>x.classList.toggle('selected',x===b));});
 $('#screenBtn').onclick=()=>capture('screen');$('#cameraBtn').onclick=()=>capture('camera');
 async function capture(type){try{const stream=type==='screen'?await navigator.mediaDevices.getDisplayMedia({video:true,audio:true}):await navigator.mediaDevices.getUserMedia({video:true,audio:true});const recorder=new MediaRecorder(stream);state.chunks=[];state.recorder=recorder;recorder.ondataavailable=e=>{if(e.data.size)state.chunks.push(e.data);};recorder.onstop=()=>{const blob=new Blob(state.chunks,{type:recorder.mimeType||'video/webm'});const file=new File([blob],(type==='screen'?'screen-capture':'camera-capture')+'-'+Date.now()+'.webm',{type:blob.type});const url=URL.createObjectURL(blob);state.objectUrls.push(url);state.files.push({name:file.name,file,url,duration:0});setActive(state.files.length-1);renderMedia();stream.getTracks().forEach(t=>t.stop());toast('Capture saved to this project.');};recorder.start(500);state.recording=true;toast('Recording started. Press STOP CAPTURE when ready.');$('#screenBtn').textContent='■ STOP CAPTURE';$('#cameraBtn').textContent='■ STOP CAPTURE';const stop=()=>{if(recorder.state!=='inactive')recorder.stop();state.recording=false;$('#screenBtn').textContent='▣ Capture screen';$('#cameraBtn').textContent='◉ Capture camera';};$('#screenBtn').onclick=stop;$('#cameraBtn').onclick=stop;stream.getVideoTracks()[0].addEventListener('ended',stop,{once:true});}catch(e){toast('Capture unavailable: '+e.message);}}
-$('#analyseBtn').onclick=()=>toast('Highlight analysis engine is not yet integrated. No AI result has been fabricated.');
+function renderHighlights(list){
+  const box=$('#highlights');
+  if(!list.length){box.innerHTML='';return;}
+  box.innerHTML=list.map((h,i)=>'<button class="hl" data-i="'+i+'"><span><b>'+fmt(h.start)+' → '+fmt(h.end)+'</b><small>'+Math.round(h.end-h.start)+'s clip · audio '+Math.round(h.audio*100)+(h.scene>0.15?' · cut '+Math.round(h.scene*100):'')+'</small></span><span>'+Math.round(h.score*100)+'</span></button>').join('');
+  box.querySelectorAll('.hl').forEach(b=>b.onclick=()=>{const h=list[+b.dataset.i];state.in=h.start;state.out=h.end;video.currentTime=h.start;updateRange();toast('Loaded moment at '+fmt(h.start));});
+}
+$('#analyseBtn').onclick=async()=>{
+  const f=activeFile(); if(!f) return;
+  const btn=$('#analyseBtn'), bar=$('#analysisProgress');
+  btn.disabled=true; bar.hidden=false; $('#highlights').innerHTML='';
+  $('#analysisStatus').textContent='Scanning audio energy and scene cuts…';
+  try{
+    const list=await detectHighlights(f.file,{clipLength:20,maxClips:6});
+    renderHighlights(list);
+    $('#analysisStatus').textContent=list.length?list.length+' moments found. Tap one to load it.':'No clear peaks found in this file.';
+  }catch(e){
+    $('#analysisStatus').textContent='Analysis failed: '+e.message;
+  }finally{
+    btn.disabled=false; bar.hidden=true;
+  }
+};
 $('#saveBtn').onclick=saveProject;
 function saveProject(){const data={version:1,aspect:state.aspect,in:state.in,out:state.out,zoom:state.zoom,x:state.x,y:state.y,caption:state.caption,files:state.files.map(f=>({name:f.name,duration:f.duration}))};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='clippers-project.json';a.click();toast('Project settings exported. Media files remain on your device.');}
 $('#exportBtn').onclick=$('#exportSide').onclick=()=>exportClip();
-async function exportClip(){if(!activeFile())return toast('Import a source video first.');if(!window.crossOriginIsolated){toast('Export engine requires cross-origin isolation. Run the packaged app or configured preview.');return;}$('#exportStatus').textContent='Preparing export engine…';toast('Export engine integration is pending; this build does not claim a rendered export.');$('#exportStatus').textContent='Rendering engine not yet integrated.';}
+async function exportClip(){
+  const f=activeFile();
+  if(!f) return toast('Import a source video first.');
+  const btn=$('#exportBtn'), side=$('#exportSide'), bar=$('#exportProgress'), status=$('#exportStatus');
+  const start=state.in||0, end=state.out||f.duration||video.duration;
+  if(!(end>start)) return toast('Set an in and out point first.');
+  btn.disabled=side.disabled=true; bar.hidden=false; bar.firstElementChild.style.width='0%';
+  status.textContent='Rendering 1080 × 1920…';
+  try{
+    const result=await renderClip({
+      videoEl:video, start, end, width:1080, height:1920,
+      zoom:state.zoom, x:state.x/100, y:state.y/100,
+      caption:state.caption, captionStyle:state.captionStyle||'bold',
+      reactionEl:state.reaction>=0?reactionVideo:null,
+      onProgress:({progress})=>{
+        bar.firstElementChild.style.width=(progress*100).toFixed(1)+'%';
+        status.textContent='Rendering '+Math.round(progress*100)+'% of '+fmt(end-start);
+      }
+    });
+    const name='clippers-'+Date.now()+'.'+result.extension;
+    status.textContent='Saving '+name+'…';
+    await saveClip(result.blob,name);
+    const mb=(result.blob.size/1048576).toFixed(1);
+    status.textContent='Saved '+name+' · '+mb+' MB · '+result.width+'×'+result.height+' · '+fmt(result.duration);
+    toast('Clip saved: '+name);
+  }catch(e){
+    status.textContent='Export failed: '+e.message;
+    toast(e.message);
+  }finally{
+    btn.disabled=side.disabled=false; bar.hidden=true; bar.firstElementChild.style.width='0%';
+  }
+}
 $('#fitBtn').onclick=()=>{state.zoom=1;state.x=50;state.y=50;$('#zoom').value=1;$('#posX').value=50;$('#posY').value=50;applyCrop();};
 applyCrop();renderMedia();renderTrack();
 window.addEventListener('beforeunload',()=>state.objectUrls.forEach(URL.revokeObjectURL));
