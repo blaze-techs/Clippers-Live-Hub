@@ -52,6 +52,20 @@ The compose tests assert a left-half crop keeps red, a right-half crop keeps
 blue, and that burning captions changes the lower third — real pixels, not
 mocks.
 
+## Packaging and releases
+
+- `electron/main.cjs` spawns `runtime/ClippersLiveHub.exe` on port 18765 with
+  `CLIPPERS_HOME` set to Electron's `userData`. The Go side already honours
+  that variable in `defaultBaseDir()`, so projects land in
+  `<userData>/data/projects` and exports in `<userData>/clips`.
+- `dist/` is both the Vite output and the staging directory for the Go binary,
+  so `vite build` and `go build -o dist/...` must not run at the same time.
+- Chocolatey's `ffmpeg.exe` is a shim; `Get-Command` returns a path relative to
+  the shim's own directory. Resolve `$env:ChocolateyInstall\lib\ffmpeg\tools`
+  instead, otherwise `Copy-Item` fails on the runner.
+- The Android job in `build-release.yml` produces a Capacitor web shell only.
+  It has no engine and no export path. Do not describe it as a working clipper.
+
 ## Architecture decisions worth keeping
 
 - **One ffmpeg process per live session.** The segmenter and the analysis
