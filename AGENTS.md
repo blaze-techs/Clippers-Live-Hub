@@ -58,8 +58,9 @@ mocks.
   `CLIPPERS_HOME` set to Electron's `userData`. The Go side already honours
   that variable in `defaultBaseDir()`, so projects land in
   `<userData>/data/projects` and exports in `<userData>/clips`.
-- `dist/` is both the Vite output and the staging directory for the Go binary,
-  so `vite build` and `go build -o dist/...` must not run at the same time.
+- `dist/` belongs to Vite, which empties it on every build. Go binaries go to
+  `runtime/` (where `electron/main.cjs` looks for them). Never stage a binary
+  in `dist/`: `npm run build` deletes it.
 - Chocolatey's `ffmpeg.exe` is a shim; `Get-Command` returns a path relative to
   the shim's own directory. Resolve `$env:ChocolateyInstall\lib\ffmpeg\tools`
   instead, otherwise `Copy-Item` fails on the runner.

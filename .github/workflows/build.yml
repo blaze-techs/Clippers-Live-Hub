@@ -60,4 +60,4 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes
-          gh release upload "$TAG" dist/ClippersLiveHub.exe --clobber
+          gh release upload "$TAG" runtime/ClippersLiveHub.exe --clobber

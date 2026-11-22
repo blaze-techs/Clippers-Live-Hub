@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Cross-compiles the Windows executable. ffmpeg is not bundled: drop
-# ffmpeg.exe and ffprobe.exe into dist/bin/ next to the app, or have them on PATH.
+# ffmpeg.exe and ffprobe.exe into runtime/bin/ next to the app, or have them on PATH.
 set -euo pipefail
 
 VERSION="${VERSION:-dev}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT="$ROOT/dist"
+OUT="$ROOT/runtime"
 mkdir -p "$OUT/bin"
 
 cd "$ROOT"
