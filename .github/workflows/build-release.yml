@@ -32,10 +32,19 @@ jobs:
         shell: pwsh
         run: |
           choco install ffmpeg -y --no-progress
-          $ffmpeg = (Get-Command ffmpeg.exe).Source
-          $ffprobe = (Get-Command ffprobe.exe).Source
-          Copy-Item $ffmpeg runtime/bin/ffmpeg.exe
-          Copy-Item $ffprobe runtime/bin/ffprobe.exe
+          # The chocolatey shim reports a path relative to its own directory,
+          # so resolve the real binaries instead of trusting Get-Command.
+          New-Item -ItemType Directory -Force runtime/bin | Out-Null
+          $bin = Join-Path $env:ChocolateyInstall 'lib\ffmpeg\tools\ffmpeg\bin'
+          if (!(Test-Path (Join-Path $bin 'ffmpeg.exe'))) {
+            $found = Get-ChildItem (Join-Path $env:ChocolateyInstall 'lib\ffmpeg\tools') -Recurse -Filter ffmpeg.exe |
+              Select-Object -First 1
+            if (!$found) { throw 'ffmpeg.exe not found after install' }
+            $bin = $found.DirectoryName
+          }
+          Copy-Item (Join-Path $bin 'ffmpeg.exe') runtime/bin/ffmpeg.exe -Force
+          Copy-Item (Join-Path $bin 'ffprobe.exe') runtime/bin/ffprobe.exe -Force
+          if (!(Test-Path runtime/bin/ffmpeg.exe)) { throw 'ffmpeg was not staged' }
           & runtime/ClippersLiveHub.exe -version
           & runtime/bin/ffmpeg.exe -version
       - name: Build desktop installer
