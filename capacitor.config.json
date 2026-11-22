@@ -1,0 +1,7 @@
+{
+  "appId": "com.clipperslivehub.studio",
+  "appName": "Clippers Live Hub",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": { "allowMixedContent": false }
+}
