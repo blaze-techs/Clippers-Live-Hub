@@ -32,18 +32,14 @@ jobs:
         shell: pwsh
         run: |
           choco install ffmpeg -y --no-progress
-          # The chocolatey shim reports a path relative to its own directory,
-          # so resolve the real binaries instead of trusting Get-Command.
-          New-Item -ItemType Directory -Force runtime/bin | Out-Null
-          $bin = Join-Path $env:ChocolateyInstall 'lib\ffmpeg\tools\ffmpeg\bin'
-          if (!(Test-Path (Join-Path $bin 'ffmpeg.exe'))) {
-            $found = Get-ChildItem (Join-Path $env:ChocolateyInstall 'lib\ffmpeg\tools') -Recurse -Filter ffmpeg.exe |
-              Select-Object -First 1
-            if (!$found) { throw 'ffmpeg.exe not found after install' }
-            $bin = $found.DirectoryName
-          }
-          Copy-Item (Join-Path $bin 'ffmpeg.exe') runtime/bin/ffmpeg.exe -Force
-          Copy-Item (Join-Path $bin 'ffprobe.exe') runtime/bin/ffprobe.exe -Force
+          # Chocolatey exposes shim executables on PATH. Bundle the real binaries,
+          # not the shims, because the installed Chocolatey directory is not present
+          # on end-user machines.
+          $ffmpeg = Get-ChildItem "$env:ChocolateyInstall\lib\ffmpeg\tools" -Filter ffmpeg.exe -Recurse -File | Select-Object -First 1
+          $ffprobe = Get-ChildItem "$env:ChocolateyInstall\lib\ffmpeg\tools" -Filter ffprobe.exe -Recurse -File | Select-Object -First 1
+          if (-not $ffmpeg -or -not $ffprobe) { throw "FFmpeg/FFprobe binaries were not found in the Chocolatey package." }
+          Copy-Item $ffmpeg.FullName runtime/bin/ffmpeg.exe
+          Copy-Item $ffprobe.FullName runtime/bin/ffprobe.exe
           if (!(Test-Path runtime/bin/ffmpeg.exe)) { throw 'ffmpeg was not staged' }
           & runtime/ClippersLiveHub.exe -version
           & runtime/bin/ffmpeg.exe -version
