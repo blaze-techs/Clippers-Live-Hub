@@ -1,0 +1,67 @@
+name: Build Windows EXE and Android APK
+
+on:
+  push:
+    branches: [feature/auto-clipper]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows desktop executable
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+          cache: true
+      - name: Run Go tests
+        run: go test ./... -count=1
+      - name: Build Windows executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          $env:CGO_ENABLED = "0"
+          go build -trimpath -ldflags "-s -w" -o dist/ClippersLiveHub.exe ./cmd/clipper
+          if (!(Test-Path dist/ClippersLiveHub.exe)) { throw "EXE was not produced" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clippers-Live-Hub-Windows-EXE
+          path: dist/ClippersLiveHub.exe
+          if-no-files-found: error
+
+  android:
+    name: Android APK package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install web dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build web interface
+        run: npm run build
+      - name: Generate Capacitor Android project
+        run: npx cap add android
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clippers-Live-Hub-Android-APK-PREVIEW
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
