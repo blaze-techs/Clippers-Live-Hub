@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clippers Live Hub</title>
+<style>
+  :root{
+    --bg:#0a0c0f; --panel:#12161b; --panel-2:#171c22; --line:#242c35;
+    --text:#e8edf3; --muted:#8b97a6; --accent:#ff4d3d; --accent-2:#3d8bff;
+    --ok:#33d17a; --warn:#ffb020; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#1a2029 0%,var(--bg) 55%);
+    color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh}
+  header{display:flex;align-items:center;gap:16px;padding:18px 26px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:rgba(10,12,15,.86);backdrop-filter:blur(10px);z-index:5}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.4px}
+  .logo .dot{width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    box-shadow:0 0 18px rgba(255,77,61,.7)}
+  .logo small{display:block;font-weight:500;font-size:11px;color:var(--muted);letter-spacing:1.6px}
+  .pill{margin-left:auto;display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;
+    border:1px solid var(--line);background:var(--panel);font-size:13px;color:var(--muted)}
+  .pill .led{width:8px;height:8px;border-radius:50%;background:#4a5561}
+  .pill.live .led{background:var(--accent);animation:pulse 1.4s infinite}
+  .pill.done .led{background:var(--ok)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  main{display:grid;grid-template-columns:380px 1fr;gap:22px;padding:22px 26px 60px;max-width:1600px;margin:0 auto}
+  @media(max-width:980px){main{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);
+    border-radius:var(--radius);padding:18px}
+  .card h2{margin:0 0 14px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
+  .tabs{display:flex;gap:6px;background:#0e1216;padding:5px;border-radius:10px;margin-bottom:16px}
+  .tabs button{flex:1;padding:9px 0;border:0;border-radius:8px;background:transparent;color:var(--muted);
+    font-weight:600;font-size:13px;cursor:pointer;transition:.15s}
+  .tabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 0 var(--line) inset}
+  label.field{display:block;margin-bottom:14px}
+  label.field span{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input[type=text],input[type=number],select{width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--line);
+    background:#0e1216;color:var(--text);font-size:14px;outline:none}
+  input:focus,select:focus{border-color:var(--accent-2)}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  .slider{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .slider span{font-size:12px;color:var(--muted);min-width:96px}
+  .slider input[type=range]{flex:1;accent-color:var(--accent)}
+  .slider b{min-width:44px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+  .switch{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}
+  .switch small{color:var(--muted);font-size:12px}
+  .toggle{width:44px;height:24px;border-radius:999px;background:#2a333d;position:relative;cursor:pointer;transition:.18s;flex:none}
+  .toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#8794a3;transition:.18s}
+  .toggle.on{background:rgba(255,77,61,.35)}
+  .toggle.on::after{left:23px;background:var(--accent)}
+  .actions{display:flex;gap:10px;margin-top:18px}
+  button.primary,button.ghost{padding:12px 18px;border-radius:10px;border:1px solid var(--line);font-weight:700;
+    cursor:pointer;font-size:14px;transition:.15s}
+  button.primary{flex:1;background:linear-gradient(135deg,var(--accent),#ff7a3d);color:#fff;border:0}
+  button.primary:disabled{opacity:.4;cursor:not-allowed}
+  button.ghost{background:#0e1216;color:var(--text)}
+  button.ghost:disabled{opacity:.35;cursor:not-allowed}
+  .meter{height:10px;border-radius:999px;background:#0e1216;overflow:hidden;border:1px solid var(--line)}
+  .meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-2),var(--accent));
+    transition:width .18s ease-out}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+  .stat{background:#0e1216;border:1px solid var(--line);border-radius:10px;padding:12px}
+  .stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+  .stat small{color:var(--muted);font-size:11px;letter-spacing:.6px;text-transform:uppercase}
+  .clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+  .clip{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0e1216}
+  .clip video{width:100%;aspect-ratio:9/16;object-fit:cover;background:#000;display:block}
+  .clip .meta{padding:10px 12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}
+  .clip .meta a{color:var(--accent-2);text-decoration:none;font-weight:600}
+  .clip .meta button{background:none;border:0;color:#63707f;cursor:pointer;font-size:12px}
+  .clip .meta button:hover{color:var(--accent)}
+  .empty{border:1px dashed var(--line);border-radius:12px;padding:40px;text-align:center;color:var(--muted)}
+  .log{margin-top:16px;height:120px;overflow:auto;background:#0a0e12;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:#93a1b1}
+  .log div span{color:#5a6675}
+  .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="dot"></div><div>CLIPPERS LIVE HUB<small>LIVE AUTO-CLIPPER</small></div></div>
+  <div class="pill" id="pill"><span class="led"></span><span id="pillText">idle</span></div>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <h2>Source</h2>
+      <div class="tabs" id="tabs">
+        <button data-kind="screen" class="on">Screen</button>
+        <button data-kind="window">Window</button>
+        <button data-kind="url">Stream</button>
+        <button data-kind="file">Video</button>
+      </div>
+
+      <div id="pane-screen">
+        <label class="field"><span>Capture rate (fps)</span><input type="number" id="fps" value="30" min="15" max="120"></label>
+        <label class="field"><span>Audio device (optional, Windows)</span><input type="text" id="audio" placeholder="Stereo Mix / line-in name"></label>
+      </div>
+
+      <div id="pane-window" hidden>
+        <label class="field"><span>Window title</span><input type="text" id="title" placeholder="exact window title"></label>
+        <label class="field"><span>Capture rate (fps)</span><input type="number" id="wfps" value="30" min="15" max="120"></label>
+        <label class="field"><span>Audio device (optional)</span><input type="text" id="waudio" placeholder="Stereo Mix"></label>
+      </div>
+
+      <div id="pane-url" hidden>
+        <label class="field"><span>Stream URL</span><input type="text" id="url" placeholder="https://… .m3u8 / rtmp://…"></label>
+        <p class="hint">Only record streams you own or have permission to capture.</p>
+      </div>
+
+      <div id="pane-file" hidden>
+        <label class="field"><span>Video path</span><input type="text" id="path" placeholder="C:\Videos\match.mp4"></label>
+        <p class="hint">Analyses the whole file, then exports every detected highlight.</p>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="start">Start clipping</button>
+        <button class="ghost" id="stop" disabled>Stop</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>Detection</h2>
+      <div class="slider"><span>Sensitivity</span><input type="range" id="threshold" min="0.2" max="1.2" step="0.05" value="0.55"><b id="thresholdV">0.55</b></div>
+      <div class="slider"><span>Pre-roll</span><input type="range" id="pre" min="0" max="30" step="1" value="6"><b id="preV">6s</b></div>
+      <div class="slider"><span>Post-roll</span><input type="range" id="post" min="0" max="30" step="1" value="4"><b id="postV">4s</b></div>
+      <div class="slider"><span>Max length</span><input type="range" id="maxclip" min="10" max="120" step="5" value="60"><b id="maxclipV">60s</b></div>
+      <div class="switch"><div><div>Face-tracked crop</div><small>Follows the face for 9:16</small></div><div class="toggle on" id="face"></div></div>
+      <div class="switch"><div><div>Clean audio</div><small>Denoise, high-pass, loudness -14 LUFS</small></div><div class="toggle on" id="clean"></div></div>
+      <div class="switch"><div><div>Burn captions</div><small>Requires whisper.cpp + model</small></div><div class="toggle" id="caps"></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>Live monitor</h2>
+      <div class="meter"><i id="meterFill"></i></div>
+      <div class="stats">
+        <div class="stat"><b id="sScore">0.00</b><small>score</small></div>
+        <div class="stat"><b id="sBase">–</b><small>baseline dB</small></div>
+        <div class="stat"><b id="sBuf">0s</b><small>buffered</small></div>
+        <div class="stat"><b id="sClips">0</b><small>clips</small></div>
+      </div>
+      <div class="log" id="log"><div><span>ready</span> — waiting for a source</div></div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>Clips</h2>
+      <div class="clips" id="clips"></div>
+      <div class="empty" id="empty">No clips yet. Start a session and highlights will appear here.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let kind = "screen";
+let running = false;
+
+const fmtTime = (s) => {
+  s = Math.max(0, Math.round(s));
+  const m = Math.floor(s / 60), r = s % 60;
+  return m ? `${m}m ${r}s` : `${r}s`;
+};
+
+document.querySelectorAll("#tabs button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on");
+    kind = b.dataset.kind;
+    ["screen", "window", "url", "file"].forEach((k) => ($("pane-" + k).hidden = k !== kind));
+  };
+});
+
+function toggle(id) {
+  const el = $(id);
+  el.onclick = () => el.classList.toggle("on");
+  return () => el.classList.contains("on");
+}
+const isFace = toggle("face");
+const isClean = toggle("clean");
+const isCaps = toggle("caps");
+
+function bindSlider(id, suffix, decimals) {
+  const el = $(id), out = $(id + "V");
+  const sync = () => {
+    const v = parseFloat(el.value);
+    out.textContent = suffix ? v.toFixed(decimals ?? 0) + suffix : v.toFixed(decimals ?? 2);
+  };
+  el.oninput = sync;
+  sync();
+}
+bindSlider("threshold", "", 2);
+bindSlider("pre", "s", 0);
+bindSlider("post", "s", 0);
+bindSlider("maxclip", "s", 0);
+
+function sourcePayload() {
+  const base = { kind };
+  if (kind === "screen") {
+    base.fps = parseInt($("fps").value) || 30;
+    base.audio_device = $("audio").value.trim();
+  } else if (kind === "window") {
+    base.window_title = $("title").value.trim();
+    base.fps = parseInt($("wfps").value) || 30;
+    base.audio_device = $("waudio").value.trim();
+  } else if (kind === "url") {
+    base.path = $("url").value.trim();
+  } else {
+    base.path = $("path").value.trim();
+  }
+  return base;
+}
+
+function settingsPayload() {
+  return {
+    output_dir: state.settings?.output_dir || "",
+    threshold: parseFloat($("threshold").value),
+    pre_roll: parseFloat($("pre").value),
+    post_roll: parseFloat($("post").value),
+    max_clip: parseFloat($("maxclip").value),
+    min_clip: 6,
+    cooldown: 8,
+    buffer_seconds: 120,
+    baseline_secs: 30,
+    out_width: 1080,
+    out_height: 1920,
+    layout: isFace() ? "face" : "center",
+    clean_audio: isClean(),
+    captions: isCaps(),
+    port: 8765,
+  };
+}
+
+async function saveSettings() {
+  if (running) return;
+  try {
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settingsPayload()),
+    });
+  } catch (e) {}
+}
+
+["threshold", "pre", "post", "maxclip"].forEach((id) => ($(id).onchange = saveSettings));
+
+$("start").onclick = async () => {
+  await saveSettings();
+  const res = await fetch("/api/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sourcePayload()),
+  });
+  const body = await res.json();
+  if (!res.ok) {
+    addLog("error", body.error || "could not start");
+    return;
+  }
+  setRunning(true);
+};
+
+$("stop").onclick = async () => {
+  await fetch("/api/stop", { method: "POST" });
+  setRunning(false);
+};
+
+function setRunning(v) {
+  running = v;
+  $("start").disabled = v;
+  $("stop").disabled = !v;
+  const pill = $("pill");
+  pill.className = "pill" + (v ? " live" : "");
+  $("pillText").textContent = v ? "live" : "idle";
+}
+
+function addLog(tag, msg) {
+  const log = $("log");
+  const row = document.createElement("div");
+  const t = new Date().toLocaleTimeString();
+  row.innerHTML = `<span>${t}</span> ${msg}`;
+  log.appendChild(row);
+  while (log.children.length > 120) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+let state = { settings: null, clips: [] };
+
+function renderClips(clips) {
+  state.clips = clips;
+  const wrap = $("clips");
+  wrap.innerHTML = "";
+  $("empty").style.display = clips.length ? "none" : "block";
+  for (const c of clips) {
+    const el = document.createElement("div");
+    el.className = "clip";
+    el.innerHTML = `
+      <video src="/clips/${encodeURIComponent(c.file)}" controls preload="metadata"
+             poster="${c.thumb ? "/clips/" + encodeURIComponent(c.thumb) : ""}"></video>
+      <div class="meta">
+        <div>${fmtTime(c.duration)} · ${(c.size / 1048576).toFixed(1)} MB</div>
+        <div>
+          <a href="/clips/${encodeURIComponent(c.file)}" download>save</a>
+          <button data-id="${c.id}">delete</button>
+        </div>
+      </div>`;
+    el.querySelector("button").onclick = async () => {
+      await fetch("/api/clips/" + c.id, { method: "DELETE" });
+      loadClips();
+    };
+    wrap.appendChild(el);
+  }
+}
+
+async function loadClips() {
+  const res = await fetch("/api/clips");
+  renderClips(await res.json());
+}
+
+async function loadSettings() {
+  const res = await fetch("/api/settings");
+  state.settings = await res.json();
+  const s = state.settings;
+  $("threshold").value = s.threshold;
+  $("pre").value = s.pre_roll;
+  $("post").value = s.post_roll;
+  $("maxclip").value = s.max_clip;
+  bindSlider("threshold", "", 2);
+  bindSlider("pre", "s", 0);
+  bindSlider("post", "s", 0);
+  bindSlider("maxclip", "s", 0);
+  if (s.layout === "center") $("face").classList.remove("on");
+  if (!s.clean_audio) $("clean").classList.remove("on");
+  if (s.captions) $("caps").classList.add("on");
+}
+
+function applyStatus(s) {
+  $("sScore").textContent = (s.score || 0).toFixed(2);
+  $("meterFill").style.width = Math.min(100, (s.score || 0) * 100) + "%";
+  $("sBase").textContent = s.baseline ? s.baseline.toFixed(0) : "–";
+  $("sBuf").textContent = fmtTime((s.buffer_end || 0) - (s.buffer_start || 0));
+  $("sClips").textContent = s.clip_count || 0;
+  if (s.running !== running) setRunning(s.running);
+  if (s.message && s.message !== "finished") {
+    const pill = $("pill");
+    if (!s.running) { pill.className = "pill"; $("pillText").textContent = "idle"; }
+  }
+}
+
+function connectEvents() {
+  const es = new EventSource("/api/events");
+  es.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    if (ev.type === "status" && ev.status) applyStatus(ev.status);
+    if (ev.type === "log") addLog("", ev.message);
+    if (ev.type === "clip") { addLog("clip", "exported " + ev.clip.file); loadClips(); }
+    if (ev.type === "done") { setRunning(false); loadClips(); }
+  };
+  es.onerror = () => setTimeout(connectEvents, 2000);
+}
+
+loadSettings();
+loadClips();
+connectEvents();
+setInterval(async () => {
+  const res = await fetch("/api/status");
+  applyStatus(await res.json());
+}, 2000);
+</script>
+</body>
+</html>
