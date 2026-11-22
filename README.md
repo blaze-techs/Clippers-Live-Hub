@@ -41,6 +41,28 @@ beside it, then double-click. The control panel opens at
 2. Press **Start clipping**.
 3. Highlights appear in the Clips grid as they are exported.
 
+### Clip Studio
+
+The UI is a timeline editor, not just a control panel. Everything you see is
+driven by a portable JSON project, and the preview uses the same crop maths as
+the renderer, so what you frame is what you get.
+
+| Area | What it does |
+| --- | --- |
+| Sources | Import any local video/audio file, with thumbnails and waveform peaks |
+| Timeline | Multi-track: video, overlay (picture-in-picture), audio, captions |
+| Editing | Drag to move, drag edges to trim, `S` or ✂ to split, `Del` to remove, snap to clip edges |
+| Reframe | Crop X/Y/zoom sliders, *Fit 9:16*, keyframed pan, PiP placement |
+| Captions | Cue list, styling, `.srt` import/export, whisper transcription, burn toggle |
+| Export | 1080×1920 / 1080×1080 / 1920×1080 presets, CRF, watermark, clean audio, progress and cancel |
+
+Shortcuts: `Space` play/pause, `←`/`→` step 1 s (`Shift` for 5 s), `S` split,
+`Del` delete, `Ctrl+Z` / `Ctrl+Shift+Z` undo and redo.
+
+Projects live under `--data` (default `./data/projects/<id>/`), one directory
+per project with `project.json`, `thumbs/` and `exports/`. The document is
+written atomically, and an interrupted autosave is recovered on next open.
+
 ### Source notes
 
 - **Screen** — captures the primary display. On Windows add an audio device
@@ -118,9 +140,12 @@ internal/analyze     loudness/scene parsing and the highlight detector
 internal/face        pure-Go face detection
 internal/reframe     9:16 crop geometry, smoothing, sendcmd animation
 internal/render      single-pass export with reframe, audio, captions
+internal/project     project document, store, timeline ops, undo/redo, ASS/SRT
+internal/media       import: probe, thumbnails, waveform peaks
+internal/compose     timeline -> one ffmpeg filter graph -> verified MP4
 internal/caption     whisper.cpp integration
 internal/pipeline    orchestration of live and file sessions
-internal/webui       embedded control panel
+internal/webui       embedded Clip Studio UI
 ```
 
 ## Limitations

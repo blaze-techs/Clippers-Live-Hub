@@ -26,9 +26,14 @@ type Server struct {
 	tools  *ffmpeg.Tools
 	assets fs.FS
 
-	mu  sync.RWMutex
-	cfg config.Config
+	mu     sync.RWMutex
+	cfg    config.Config
+	studio *Studio
 }
+
+// SetStudio mounts the project, timeline and export API next to the capture
+// API so one binary serves both.
+func (s *Server) SetStudio(st *Studio) { s.studio = st }
 
 // New builds a server.
 func New(cfg config.Config, pipe *pipeline.Pipeline, tools *ffmpeg.Tools, assets fs.FS) *Server {
@@ -48,6 +53,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/settings", s.handleSettings)
 	mux.HandleFunc("/api/environment", s.handleEnvironment)
 	mux.HandleFunc("/clips/", s.handleClipFile)
+	if s.studio != nil {
+		s.studio.Register(mux)
+	}
 	return logRequests(mux)
 }
 
