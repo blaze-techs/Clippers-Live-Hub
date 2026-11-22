@@ -32,10 +32,14 @@ jobs:
         shell: pwsh
         run: |
           choco install ffmpeg -y --no-progress
-          $ffmpeg = (Get-Command ffmpeg.exe).Source
-          $ffprobe = (Get-Command ffprobe.exe).Source
-          Copy-Item $ffmpeg runtime/bin/ffmpeg.exe
-          Copy-Item $ffprobe runtime/bin/ffprobe.exe
+          # Chocolatey exposes shim executables on PATH. Bundle the real binaries,
+          # not the shims, because the installed Chocolatey directory is not present
+          # on end-user machines.
+          $ffmpeg = Get-ChildItem "$env:ChocolateyInstall\lib\ffmpeg\tools" -Filter ffmpeg.exe -Recurse -File | Select-Object -First 1
+          $ffprobe = Get-ChildItem "$env:ChocolateyInstall\lib\ffmpeg\tools" -Filter ffprobe.exe -Recurse -File | Select-Object -First 1
+          if (-not $ffmpeg -or -not $ffprobe) { throw "FFmpeg/FFprobe binaries were not found in the Chocolatey package." }
+          Copy-Item $ffmpeg.FullName runtime/bin/ffmpeg.exe
+          Copy-Item $ffprobe.FullName runtime/bin/ffprobe.exe
           & runtime/ClippersLiveHub.exe -version
           & runtime/bin/ffmpeg.exe -version
       - name: Build desktop installer
